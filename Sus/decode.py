@@ -28,7 +28,9 @@ def decode_bundle(bundle_file="project_bundle.txt", target_dir="."):
     extracted_count = 0
     for rel_path, content_b64 in data.items():
         out_path = os.path.normpath(os.path.join(target_dir, rel_path))
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        dir_name = os.path.dirname(out_path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
 
         content_bytes = base64.b64decode(content_b64)
         with open(out_path, "wb") as out_file:
