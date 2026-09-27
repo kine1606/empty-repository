@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package terminal;
+
+// Terminal-specific request definitions
+message TerminalRequest {
+    string terminal_id = 1;
+    string raw_command = 2;
+    string action = 3;
+    string parameters = 4;
+    int64 timestamp_epoch_ms = 5;
+}
+
+// Terminal-specific response definitions
+message TerminalResponse {
+    string request_id = 1;
+    bool is_success = 2;
+    int32 return_code = 3;
+    string output_text = 4;
+}

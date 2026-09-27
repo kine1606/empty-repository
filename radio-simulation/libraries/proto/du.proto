@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package du;
+
+// DU-specific request definitions
+message DURequest {
+    string command = 1;
+    int32 transaction_id = 2;
+    string carrier_freq = 3;
+    double bandwidth_mhz = 4;
+    double tx_power_dbm = 5;
+    string additional_data = 6;
+}
+
+// DU-specific response definitions
+message DUResponse {
+    string request_id = 1;
+    int32 status_code = 2;
+    string status_message = 3;
+    string active_state = 4;
+    string details = 5;
+}

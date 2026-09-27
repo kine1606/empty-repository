@@ -54,6 +54,13 @@ PKG_CHECK_MODULES([GTEST], [gtest >= 1.8.0], [], [
 
 AM_CONDITIONAL([HAVE_GTEST], [true])
 
+# 4. Check for GNU Readline
+PKG_CHECK_MODULES([READLINE], [readline], [], [
+    AC_CHECK_LIB([readline], [readline], [READLINE_LIBS="-lreadline"], [
+        AC_MSG_ERROR([readline missing. Please install libreadline-dev.])
+    ])
+])
+
 # =========================================================================
 # Check for Code Generator Binaries
 # =========================================================================

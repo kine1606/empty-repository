@@ -5,10 +5,16 @@ lib_LTLIBRARIES = \
 libmailbox_la_SOURCES = \
     src/Mailbox.cc \
     src/MailboxWorker.cc \
+    src/DistributedUnitMailbox.cc \
+    src/TerminalMailbox.cc \
     src/manager/BaseMailboxManager.cc \
     src/manager/NodeAManager.cc \
     src/manager/NodeBManager.cc \
+    src/manager/DUMailboxManager.cc \
+    src/manager/TerminalMailboxManager.cc \
     src/validation/BaseValidator.cc \
+    src/validation/DUValidator.cc \
+    src/validation/TerminalValidator.cc \
     src/validation/ValidationResult.cc
 
 #Where compiler can find the header

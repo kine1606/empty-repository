@@ -4,42 +4,34 @@
 #include <memory>
 #include <thread>
 
+#include "DUMailboxManager.h"
+#include "DistributedUnitMailbox.h"
 #include "Logger.h"
 #include "Mailbox.h"
 #include "MailboxWorker.h"
 #include "NodeAManager.h"
 #include "NodeBManager.h"
+#include "TerminalMailbox.h"
+#include "TerminalMailboxManager.h"
+#include "du.pb.h"
 #include "mailbox.pb.h"
-
-namespace {
-struct MailboxDemoTestLogger {
-    MailboxDemoTestLogger() {
-        try {
-            Logger::initialize("mailbox-demo-test");
-        } catch (const std::logic_error &) {
-            // Logger was already initialized by another test translation unit in this binary
-        }
-    }
-};
-MailboxDemoTestLogger g_demoLogger;
-} // namespace
+#include "terminal.pb.h"
 
 TEST(MailboxDemoTest, NodeAToNodeBTwoDistinctResponses) {
     // 1. Setup Mailbox and Manager for Node A
     Mailbox mailboxA;
-    NodeAManager managerA(mailboxA);
-    MailboxWorker workerA(mailboxA, managerA, nullptr);
+    NodeAManager managerA{mailboxA};
+    MailboxWorker workerA{mailboxA, managerA, nullptr};
     workerA.start();
 
     // 2. Setup Mailbox and Manager for Node B
     Mailbox mailboxB;
-    NodeBManager managerB(mailboxB);
+    NodeBManager managerB{mailboxB};
 
-    // Node B's worker sends responses back to Node A's mailbox!
-    // This demonstrates the mailbox-to-mailbox asynchronous return mechanism.
-    MailboxWorker workerB(mailboxB, managerB, [&mailboxA](const mailbox::MailboxRequest &p_response) {
+    // Node B worker sends responses back to Node A mailbox
+    MailboxWorker workerB{mailboxB, managerB, [&mailboxA](const mailbox::MailboxRequest &p_response) {
         mailboxA.enqueue(p_response);
-    });
+    }};
     workerB.start();
 
     // 3. Node A creates a NodeBRequest
@@ -60,7 +52,7 @@ TEST(MailboxDemoTest, NodeAToNodeBTwoDistinctResponses) {
     // 5. Verify Node A receives distinct response 1: Validation Response
     EXPECT_TRUE(managerA.waitForValidation(2000));
     EXPECT_TRUE(managerA.hasReceivedValidation());
-    const auto valResp = managerA.getLastValidation();
+    auto valResp = managerA.getLastValidation();
     EXPECT_EQ(valResp.request_id(), "REQ-TEST-001");
     EXPECT_TRUE(valResp.is_valid());
     EXPECT_EQ(valResp.error_code(), mailbox::ErrorCode::OK);
@@ -69,7 +61,7 @@ TEST(MailboxDemoTest, NodeAToNodeBTwoDistinctResponses) {
     // 6. Verify Node A receives distinct response 2: Business Logic Response
     EXPECT_TRUE(managerA.waitForBusinessResponse(2000));
     EXPECT_TRUE(managerA.hasReceivedBusinessResponse());
-    const auto bizResp = managerA.getLastBusinessResponse();
+    auto bizResp = managerA.getLastBusinessResponse();
     EXPECT_EQ(bizResp.request_id(), "REQ-TEST-001");
     EXPECT_EQ(bizResp.status(), "SUCCESS");
     EXPECT_EQ(bizResp.result_code(), 200);
@@ -78,4 +70,60 @@ TEST(MailboxDemoTest, NodeAToNodeBTwoDistinctResponses) {
     // 7. Clean teardown
     workerA.stop();
     workerB.stop();
+}
+
+TEST(MailboxDemoTest, TerminalToDUTwoDistinctResponses) {
+    // 1. Setup Mailbox and Manager for Terminal
+    TerminalMailbox terminalMailbox;
+    TerminalMailboxManager terminalManager{terminalMailbox};
+    MailboxWorker terminalWorker{terminalMailbox, terminalManager, nullptr};
+    terminalWorker.start();
+
+    // 2. Setup Mailbox and Manager for DU
+    DistributedUnitMailbox duMailbox;
+    DUMailboxManager duManager{duMailbox};
+
+    // DU worker sends responses back to Terminal mailbox
+    MailboxWorker duWorker{duMailbox, duManager, [&terminalMailbox](const mailbox::MailboxRequest &p_response) {
+        terminalMailbox.enqueue(p_response);
+    }};
+    duWorker.start();
+
+    // 3. Terminal creates TerminalRequest (from terminal.proto)
+    terminal::TerminalRequest termReq;
+    termReq.set_terminal_id("TERM01");
+    termReq.set_action("CONFIG");
+    termReq.set_parameters("freq=3.5GHz bw=100MHz power=43dBm");
+    termReq.set_raw_command("config freq=3.5GHz bw=100MHz power=43dBm");
+
+    mailbox::MailboxRequest reqEnvelope;
+    reqEnvelope.set_request_id("REQ-TERM-001");
+    reqEnvelope.set_source("Terminal");
+    reqEnvelope.set_destination("DU");
+    reqEnvelope.mutable_payload()->PackFrom(termReq);
+
+    // 4. Send request to DU mailbox
+    EXPECT_TRUE(duMailbox.enqueue(reqEnvelope));
+
+    // 5. Verify Terminal receives distinct response 1: Validation Response
+    EXPECT_TRUE(terminalManager.waitForResponse(2000));
+    EXPECT_TRUE(terminalManager.hasReceivedValidation());
+    auto valResp = terminalManager.getLastValidation();
+    EXPECT_EQ(valResp.request_id(), "REQ-TERM-001");
+    EXPECT_TRUE(valResp.is_valid());
+
+    // 6. Verify Terminal receives distinct response 2: Business Logic Response
+    EXPECT_TRUE(terminalManager.hasReceivedExecution());
+    auto termResp = terminalManager.getLastTerminalResponse();
+    EXPECT_EQ(termResp.request_id(), "REQ-TERM-001");
+    EXPECT_TRUE(termResp.is_success());
+    EXPECT_EQ(termResp.return_code(), 0);
+    EXPECT_NE(termResp.output_text().find("DU configured successfully"), std::string::npos);
+
+    // 7. Verify DU state updated
+    EXPECT_EQ(duManager.getState(), "CONFIGURED");
+    EXPECT_EQ(duManager.getCarrierFreq(), "freq=3.5GHz bw=100MHz power=43dBm");
+
+    terminalWorker.stop();
+    duWorker.stop();
 }

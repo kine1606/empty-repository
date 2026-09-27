@@ -78,6 +78,7 @@ m4/
 test-driver
 .dirstamp
 *_simulation
+test_*
 /build/
 /build-*/
 /du_node
