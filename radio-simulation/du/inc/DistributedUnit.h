@@ -27,13 +27,16 @@ public:
 
     /**
      * @brief Starts the DU services, listening on @p p_bindAddress and
-     * configuring outbound replies to @p p_terminalAddress.
+     * configuring outbound replies to @p p_terminalAddress and @p p_ruAddress.
      *
      * @param p_bindAddress Listening address (e.g., "127.0.0.1:50051").
      * @param p_terminalAddress Target address for replies (e.g., "127.0.0.1:50054").
+     * @param p_ruAddress Target address for RU requests (e.g., "127.0.0.1:50052").
      * @return true if initialization and server start succeeded.
      */
-    bool start(const std::string &p_bindAddress, const std::string &p_terminalAddress);
+    bool start(const std::string &p_bindAddress,
+               const std::string &p_terminalAddress,
+               const std::string &p_ruAddress = "127.0.0.1:50052");
 
     /**
      * @brief Stops worker thread, closes outbound channels, and terminates server.
@@ -51,6 +54,7 @@ private:
     workerPtr m_worker;
     serverPtr m_server;
     clientPtr m_clientToTerminal;
+    clientPtr m_clientToRU;
     bool m_running{false};
 };
 

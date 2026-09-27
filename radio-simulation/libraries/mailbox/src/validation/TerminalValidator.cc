@@ -2,6 +2,7 @@
 
 #include "du.pb.h"
 #include "mailbox.pb.h"
+#include "ru.pb.h"
 #include "terminal.pb.h"
 
 ValidationResult TerminalValidator::validate(const mailbox::MailboxRequest &p_request) {
@@ -12,6 +13,7 @@ ValidationResult TerminalValidator::validate(const mailbox::MailboxRequest &p_re
 
     if (p_request.payload().Is<terminal::TerminalResponse>() ||
         p_request.payload().Is<du::DUResponse>() ||
+        p_request.payload().Is<ru::RUResponse>() ||
         p_request.payload().Is<mailbox::ValidationResponse>()) {
         return ValidationResult::success();
     }

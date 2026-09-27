@@ -8,6 +8,7 @@
 #include "TerminalValidator.h"
 #include "du.pb.h"
 #include "mailbox.pb.h"
+#include "ru.pb.h"
 #include "terminal.pb.h"
 
 namespace {
@@ -42,6 +43,12 @@ TEST(TerminalTest, SupportCheckerAndValidator) {
     termResp.set_output_text("OK");
     req.mutable_payload()->PackFrom(termResp);
 
+    EXPECT_TRUE(validator.validate(req).isSuccess());
+
+    ru::RUResponse ruResp;
+    ruResp.set_request_id("REQ-TERM-TEST-1");
+    ruResp.set_status_code(200);
+    req.mutable_payload()->PackFrom(ruResp);
     EXPECT_TRUE(validator.validate(req).isSuccess());
 }
 
@@ -84,4 +91,24 @@ TEST(TerminalTest, TerminalMailboxManagerReceivesResponses) {
     manager.processBusinessLogic(execEnvelope);
     EXPECT_TRUE(manager.hasReceivedExecution());
     EXPECT_EQ(manager.getLastTerminalResponse().output_text(), "DU Status: RUNNING");
+
+    // 3. Send RUResponse relayed via DU
+    manager.reset();
+    EXPECT_FALSE(manager.hasReceivedExecution());
+
+    mailbox::MailboxRequest ruEnvelope;
+    ruEnvelope.set_request_id("REQ-002");
+    ruEnvelope.set_source("DU");
+    ruEnvelope.set_destination("Terminal");
+
+    ru::RUResponse ruResp;
+    ruResp.set_request_id("REQ-002");
+    ruResp.set_status_code(200);
+    ruResp.set_details("Radio Unit RF frontend active");
+    ruEnvelope.mutable_payload()->PackFrom(ruResp);
+
+    manager.processBusinessLogic(ruEnvelope);
+    EXPECT_TRUE(manager.hasReceivedExecution());
+    EXPECT_NE(manager.getLastTerminalResponse().output_text().find("Radio Unit RF frontend active"),
+              std::string::npos);
 }

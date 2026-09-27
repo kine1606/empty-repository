@@ -41,20 +41,26 @@ public:
     void stop();
 
     /**
-     * @brief Sends a single command line to DU, waits for reply, and returns output.
+     * @brief Sends a single command line to DU (optionally targeting RU via DU),
+     * waits for reply, and returns output.
      *
      * @param p_command Command string (e.g. "status", "start", "config freq=3.5GHz").
+     * @param p_target Target node to address ("DU" or "RU").
      * @param p_timeoutMs Wait timeout in milliseconds.
      * @return Output response string received from DU.
      */
-    std::string sendCommand(const std::string &p_command, int p_timeoutMs = 3000);
+    std::string sendCommand(const std::string &p_command,
+                           const std::string &p_target = "DU",
+                           int p_timeoutMs = 3000);
 
     /**
      * @brief Runs the interactive GNU Readline REPL loop in Emacs editing mode.
      *
-     * @param p_prompt Custom shell prompt string.
+     * @param p_defaultTarget Default target node ("DU" or "RU").
+     * @param p_prompt Custom shell prompt string prefix.
      */
-    void runInteractive(const std::string &p_prompt = "DU-Terminal> ");
+    void runInteractive(const std::string &p_defaultTarget = "DU",
+                        const std::string &p_prompt = "");
 
     bool isRunning() const;
     TerminalMailbox &getMailbox();

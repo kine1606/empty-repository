@@ -32,6 +32,7 @@ int main(int argc, char *argv[]) {
 
     std::string bindAddress = "127.0.0.1:50051";
     std::string terminalAddress = "127.0.0.1:50054";
+    std::string ruAddress = "127.0.0.1:50052";
     bool runDemo = false;
 
     for (int i = 1; i < argc; ++i) {
@@ -42,11 +43,13 @@ int main(int argc, char *argv[]) {
             bindAddress = argv[++i];
         } else if (0 == arg.compare("--terminal-address") && i + 1 < argc) {
             terminalAddress = argv[++i];
+        } else if (0 == arg.compare("--ru-address") && i + 1 < argc) {
+            ruAddress = argv[++i];
         }
     }
 
     DistributedUnit du;
-    if (!du.start(bindAddress, terminalAddress)) {
+    if (!du.start(bindAddress, terminalAddress, ruAddress)) {
         std::cerr << "Failed to start Distributed Unit on " << bindAddress << std::endl;
         return 1;
     }
@@ -56,6 +59,7 @@ int main(int argc, char *argv[]) {
               << "============================================================\n"
               << "  -> Listening on:        " << bindAddress << "\n"
               << "  -> Replying to:         " << terminalAddress << "\n"
+              << "  -> Connected to RU:     " << ruAddress << "\n"
               << "============================================================\n";
 
     if (!runDemo) {

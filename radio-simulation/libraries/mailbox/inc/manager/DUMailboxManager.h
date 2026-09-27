@@ -8,6 +8,7 @@
 #include "DUSupportChecker.h"
 #include "DUValidator.h"
 #include "du.pb.h"
+#include "ru.pb.h"
 #include "terminal.pb.h"
 
 /**

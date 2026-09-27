@@ -11,10 +11,13 @@
 #include "MailboxWorker.h"
 #include "NodeAManager.h"
 #include "NodeBManager.h"
+#include "RUMailboxManager.h"
+#include "RadioUnitMailbox.h"
 #include "TerminalMailbox.h"
 #include "TerminalMailboxManager.h"
 #include "du.pb.h"
 #include "mailbox.pb.h"
+#include "ru.pb.h"
 #include "terminal.pb.h"
 
 TEST(MailboxDemoTest, NodeAToNodeBTwoDistinctResponses) {
@@ -126,4 +129,76 @@ TEST(MailboxDemoTest, TerminalToDUTwoDistinctResponses) {
 
     terminalWorker.stop();
     duWorker.stop();
+}
+
+TEST(MailboxDemoTest, TerminalToDUToRUFullMultiHop) {
+    // 1. Setup Terminal Mailbox and Manager
+    TerminalMailbox terminalMailbox;
+    TerminalMailboxManager terminalManager{terminalMailbox};
+    MailboxWorker terminalWorker{terminalMailbox, terminalManager, nullptr};
+    terminalWorker.start();
+
+    // 2. Setup RU Mailbox and Manager
+    RadioUnitMailbox ruMailbox;
+    RUMailboxManager ruManager{ruMailbox};
+
+    // 3. Setup DU Mailbox and Manager
+    DistributedUnitMailbox duMailbox;
+    DUMailboxManager duManager{duMailbox};
+
+    // DU worker routes RU-destined messages to RU mailbox, and Terminal-destined messages to Terminal mailbox
+    MailboxWorker duWorker{duMailbox, duManager,
+                           [&terminalMailbox, &ruMailbox](const mailbox::MailboxRequest &p_response) {
+                               if (0 == p_response.destination().compare("RU") ||
+                                   0 == p_response.destination().compare("RU01")) {
+                                   ruMailbox.enqueue(p_response);
+                               } else {
+                                   terminalMailbox.enqueue(p_response);
+                               }
+                           }};
+    duWorker.start();
+
+    // RU worker routes replies back to DU mailbox
+    MailboxWorker ruWorker{ruMailbox, ruManager,
+                          [&duMailbox](const mailbox::MailboxRequest &p_response) {
+                              duMailbox.enqueue(p_response);
+                          }};
+    ruWorker.start();
+
+    // 4. Terminal creates a TerminalRequest targeting RU via DU
+    terminal::TerminalRequest termReq;
+    termReq.set_terminal_id("TERM01");
+    termReq.set_action("START");
+    termReq.set_parameters("tx_power=40 freq=3500 antennas=4");
+    termReq.set_raw_command("ru start tx_power=40 freq=3500 antennas=4");
+    termReq.set_target_node("RU");
+
+    mailbox::MailboxRequest reqEnvelope;
+    reqEnvelope.set_request_id("REQ-MULTI-001");
+    reqEnvelope.set_source("Terminal");
+    reqEnvelope.set_destination("DU");
+    reqEnvelope.mutable_payload()->PackFrom(termReq);
+
+    // 5. Enqueue request into DU mailbox (Terminal only talks to DU)
+    EXPECT_TRUE(duMailbox.enqueue(reqEnvelope));
+
+    // 6. Terminal receives execution response from RU relayed through DU
+    EXPECT_TRUE(terminalManager.waitForResponse(3000));
+    EXPECT_TRUE(terminalManager.hasReceivedExecution());
+
+    auto termResp = terminalManager.getLastTerminalResponse();
+    EXPECT_EQ(termResp.request_id(), "REQ-MULTI-001");
+    EXPECT_TRUE(termResp.is_success());
+    EXPECT_NE(termResp.output_text().find("[RU via DU]"), std::string::npos);
+    EXPECT_NE(termResp.output_text().find("TX_ACTIVE"), std::string::npos);
+
+    // 7. Verify RU frontend state was updated
+    EXPECT_EQ(ruManager.getRfState(), "TX_ACTIVE");
+    EXPECT_DOUBLE_EQ(ruManager.getTxPowerDbm(), 40.0);
+    EXPECT_DOUBLE_EQ(ruManager.getCenterFreqMhz(), 3500.0);
+    EXPECT_EQ(ruManager.getAntennaPorts(), 4);
+
+    terminalWorker.stop();
+    duWorker.stop();
+    ruWorker.stop();
 }

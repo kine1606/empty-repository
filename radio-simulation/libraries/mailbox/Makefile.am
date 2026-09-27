@@ -3,17 +3,20 @@ lib_LTLIBRARIES = \
 
 #Where source files are
 libmailbox_la_SOURCES = \
+    src/DistributedUnitMailbox.cc \
     src/Mailbox.cc \
     src/MailboxWorker.cc \
-    src/DistributedUnitMailbox.cc \
+    src/RadioUnitMailbox.cc \
     src/TerminalMailbox.cc \
     src/manager/BaseMailboxManager.cc \
+    src/manager/DUMailboxManager.cc \
     src/manager/NodeAManager.cc \
     src/manager/NodeBManager.cc \
-    src/manager/DUMailboxManager.cc \
+    src/manager/RUMailboxManager.cc \
     src/manager/TerminalMailboxManager.cc \
     src/validation/BaseValidator.cc \
     src/validation/DUValidator.cc \
+    src/validation/RUValidator.cc \
     src/validation/TerminalValidator.cc \
     src/validation/ValidationResult.cc
 

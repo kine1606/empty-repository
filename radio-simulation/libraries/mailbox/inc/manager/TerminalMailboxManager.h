@@ -11,6 +11,7 @@
 #include "TerminalValidator.h"
 #include "du.pb.h"
 #include "mailbox.pb.h"
+#include "ru.pb.h"
 #include "terminal.pb.h"
 
 /**

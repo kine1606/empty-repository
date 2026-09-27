@@ -2,6 +2,7 @@
 
 #include "ErrorMessages.h"
 #include "du.pb.h"
+#include "ru.pb.h"
 #include "terminal.pb.h"
 
 ValidationResult DUValidator::validate(const mailbox::MailboxRequest &p_request) {
@@ -36,6 +37,11 @@ ValidationResult DUValidator::validate(const mailbox::MailboxRequest &p_request)
         return ValidationResult::success();
     }
 
+    if (p_request.payload().Is<ru::RUResponse>() ||
+        p_request.payload().Is<mailbox::ValidationResponse>()) {
+        return ValidationResult::success();
+    }
+
     return ValidationResult{false, mailbox::INVALID_PAYLOAD,
-                            "Unsupported payload type: expected TerminalRequest or DURequest"};
+                            "Unsupported payload type for DU: expected TerminalRequest, DURequest, or RUResponse"};
 }

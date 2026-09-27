@@ -6,27 +6,43 @@
 #include "Logger.h"
 #include "NodeServiceImpl.h"
 
-bool DistributedUnit::start(const std::string &p_bindAddress, const std::string &p_terminalAddress) {
+bool DistributedUnit::start(const std::string &p_bindAddress,
+                            const std::string &p_terminalAddress,
+                            const std::string &p_ruAddress) {
     if (this->m_running) {
         return true;
     }
 
-    INFO("[DistributedUnit] Starting DU on %1, targeting replies to %2",
-         p_bindAddress, p_terminalAddress);
+    INFO("[DistributedUnit] Starting DU on %1, targeting replies to %2, RU on %3",
+         p_bindAddress, p_terminalAddress, p_ruAddress);
 
     // Setup client to Terminal
-    std::shared_ptr<grpc::Channel> channel =
+    std::shared_ptr<grpc::Channel> terminalChannel =
         grpc::CreateChannel(p_terminalAddress, grpc::InsecureChannelCredentials());
-    this->m_clientToTerminal = std::make_shared<NodeClient>(channel);
+    this->m_clientToTerminal = std::make_shared<NodeClient>(terminalChannel);
 
-    // Setup worker loop with callback to send responses back to terminal
-    std::shared_ptr<NodeClient> client = this->m_clientToTerminal;
+    // Setup client to RU
+    std::shared_ptr<grpc::Channel> ruChannel =
+        grpc::CreateChannel(p_ruAddress, grpc::InsecureChannelCredentials());
+    this->m_clientToRU = std::make_shared<NodeClient>(ruChannel);
+
+    // Setup worker loop with callback to route responses
+    std::shared_ptr<NodeClient> terminalClient = this->m_clientToTerminal;
+    std::shared_ptr<NodeClient> ruClient = this->m_clientToRU;
     this->m_worker = std::make_unique<MailboxWorker>(
-        this->m_mailbox, this->m_manager, [client](const mailbox::MailboxRequest &p_response) {
-            INFO("[DU Worker] Dispatching response for RequestId=%1 to %2",
+        this->m_mailbox, this->m_manager,
+        [terminalClient, ruClient](const mailbox::MailboxRequest &p_response) {
+            INFO("[DU Worker] Dispatching message for RequestId=%1 to %2",
                  p_response.request_id(), p_response.destination());
-            if (client) {
-                client->sendMessage(p_response);
+            if (0 == p_response.destination().compare("RU") ||
+                0 == p_response.destination().compare("RU01")) {
+                if (ruClient) {
+                    ruClient->sendMessage(p_response);
+                }
+            } else {
+                if (terminalClient) {
+                    terminalClient->sendMessage(p_response);
+                }
             }
         });
 

@@ -21,6 +21,11 @@ protoc \
 protoc \
     --proto_path="$PROTO_DIR" \
     --cpp_out="$PROTO_DIR" \
+    "$PROTO_DIR/ru.proto"
+
+protoc \
+    --proto_path="$PROTO_DIR" \
+    --cpp_out="$PROTO_DIR" \
     "$PROTO_DIR/terminal.proto"
  
 echo "[SUCCESS] Protobuf generation completed."

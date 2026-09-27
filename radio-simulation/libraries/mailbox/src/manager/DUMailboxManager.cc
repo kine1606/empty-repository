@@ -21,6 +21,11 @@ DUMailboxManager::validateMessage(const mailbox::MailboxRequest &p_request) {
     INFO("[DUMailboxManager] Validating request RequestId=%1 from %2",
          p_request.request_id(), p_request.source());
 
+    if (p_request.payload().Is<ru::RUResponse>() ||
+        p_request.payload().Is<mailbox::ValidationResponse>()) {
+        return std::nullopt;
+    }
+
     if (!this->m_supportChecker.isSupported(p_request)) {
         WARN("[DUMailboxManager] Unsupported destination: %1 (expected DU/DU01)",
              p_request.destination());
@@ -38,9 +43,19 @@ DUMailboxManager::validateMessage(const mailbox::MailboxRequest &p_request) {
                                              result.getErrorMessage());
     }
 
+    std::string validMsg = "DU validated request successfully";
+    if (p_request.payload().Is<terminal::TerminalRequest>()) {
+        terminal::TerminalRequest termReq;
+        p_request.payload().UnpackTo(&termReq);
+        if (0 == termReq.target_node().compare("RU") ||
+            termReq.raw_command().rfind("ru ", 0) == 0 ||
+            termReq.raw_command().rfind("RU ", 0) == 0) {
+            validMsg = "DU validated request; routing to RU";
+        }
+    }
+
     INFO("[DUMailboxManager] RequestId=%1 validated successfully", p_request.request_id());
-    return this->buildValidationResponse(p_request, true, mailbox::OK,
-                                         "DU validated request successfully");
+    return this->buildValidationResponse(p_request, true, mailbox::OK, validMsg);
 }
 
 std::optional<mailbox::MailboxRequest>
@@ -62,6 +77,41 @@ DUMailboxManager::processBusinessLogic(const mailbox::MailboxRequest &p_request)
             std::istringstream iss(termReq.raw_command());
             iss >> action;
             action = toUpper(action);
+        }
+
+        bool isTargetingRU = (0 == termReq.target_node().compare("RU") ||
+                              0 == action.compare("RU") ||
+                              termReq.raw_command().rfind("ru ", 0) == 0 ||
+                              termReq.raw_command().rfind("RU ", 0) == 0);
+        if (isTargetingRU) {
+            INFO("[DUMailboxManager] Routing TerminalRequest RequestId=%1 to RU",
+                 p_request.request_id());
+            mailbox::MailboxRequest ruEnvelope;
+            ruEnvelope.set_request_id(p_request.request_id());
+            ruEnvelope.set_source("DU");
+            ruEnvelope.set_destination("RU");
+
+            std::string subAction = action;
+            std::string subParams = termReq.parameters();
+            if (0 == action.compare("RU")) {
+                std::istringstream iss(termReq.raw_command());
+                std::string prefix;
+                iss >> prefix >> subAction;
+                subAction = toUpper(subAction);
+                std::getline(iss, subParams);
+                size_t first = subParams.find_first_not_of(" \t");
+                if (first != std::string::npos) {
+                    subParams = subParams.substr(first);
+                } else {
+                    subParams.clear();
+                }
+            }
+
+            ru::RURequest ruReq;
+            ruReq.set_command(subAction);
+            ruReq.set_additional_params(subParams);
+            ruEnvelope.mutable_payload()->PackFrom(ruReq);
+            return ruEnvelope;
         }
 
         terminal::TerminalResponse termResp;
@@ -148,6 +198,28 @@ DUMailboxManager::processBusinessLogic(const mailbox::MailboxRequest &p_request)
 
         responseEnvelope.mutable_payload()->PackFrom(duResp);
         return responseEnvelope;
+    }
+
+    // 3. If payload is RUResponse from RU
+    if (p_request.payload().Is<ru::RUResponse>()) {
+        ru::RUResponse ruResp;
+        p_request.payload().UnpackTo(&ruResp);
+
+        INFO("[DUMailboxManager] Relaying RUResponse for RequestId=%1 to Terminal",
+             ruResp.request_id());
+
+        terminal::TerminalResponse termResp;
+        termResp.set_request_id(ruResp.request_id());
+        termResp.set_is_success(ruResp.status_code() == 200);
+        termResp.set_return_code(ruResp.status_code());
+        termResp.set_output_text("[RU via DU] " + ruResp.details());
+
+        mailbox::MailboxRequest termEnvelope;
+        termEnvelope.set_request_id(ruResp.request_id());
+        termEnvelope.set_source("DU");
+        termEnvelope.set_destination("Terminal");
+        termEnvelope.mutable_payload()->PackFrom(termResp);
+        return termEnvelope;
     }
 
     return std::nullopt;

@@ -1,5 +1,7 @@
 #include "Terminal.h"
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
@@ -67,7 +69,9 @@ void Terminal::stop() {
     }
 }
 
-std::string Terminal::sendCommand(const std::string &p_command, int p_timeoutMs) {
+std::string Terminal::sendCommand(const std::string &p_command,
+                                  const std::string &p_target,
+                                  int p_timeoutMs) {
     if (!this->m_running || !this->m_clientToDU) {
         return "Error: Terminal is not running or connected to DU.";
     }
@@ -87,11 +91,21 @@ std::string Terminal::sendCommand(const std::string &p_command, int p_timeoutMs)
         params = params.substr(1);
     }
 
+    // Determine target node: prioritize command prefix if specified, else use p_target
+    std::string targetNode = p_target;
+    if (p_command.rfind("ru ", 0) == 0 ||
+        p_command.rfind("RU ", 0) == 0 ||
+        0 == p_command.compare("ru") ||
+        0 == p_command.compare("RU")) {
+        targetNode = "RU";
+    }
+
     terminal::TerminalRequest termReq;
     termReq.set_terminal_id("TERM01");
     termReq.set_raw_command(p_command);
     termReq.set_action(action);
     termReq.set_parameters(params);
+    termReq.set_target_node(targetNode);
     termReq.set_timestamp_epoch_ms(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
@@ -102,7 +116,8 @@ std::string Terminal::sendCommand(const std::string &p_command, int p_timeoutMs)
     envelope.set_destination("DU");
     envelope.mutable_payload()->PackFrom(termReq);
 
-    INFO("[Terminal] Sending command '%1' (RequestId=%2) to DU", p_command, reqId);
+    INFO("[Terminal] Sending command '%1' (target=%2, RequestId=%3) to DU",
+         p_command, targetNode, reqId);
     this->m_clientToDU->sendMessage(envelope);
 
     // Wait for business execution response
@@ -124,19 +139,35 @@ std::string Terminal::sendCommand(const std::string &p_command, int p_timeoutMs)
     return "Response received from DU (empty payload).";
 }
 
-void Terminal::runInteractive(const std::string &p_prompt) {
+void Terminal::runInteractive(const std::string &p_defaultTarget, const std::string &p_prompt) {
     // Explicitly configure GNU Readline with Emacs editing mode
     rl_variable_bind("editing-mode", "emacs");
     rl_initialize();
 
+    std::string currentTarget = p_defaultTarget.empty() ? "DU" : p_defaultTarget;
+
     std::cout << "============================================================\n"
-              << "       5G Distributed Unit (DU) Interactive Terminal        \n"
+              << "       5G Radio Simulation Interactive Terminal             \n"
               << "     GNU Readline Emacs Mode Active (Ctrl+A, Ctrl+E, etc.)  \n"
               << "============================================================\n"
-              << "Type 'help' for available commands, 'exit' or Ctrl+D to quit.\n\n";
+              << "  -> Active Target Node:  " << currentTarget << "\n"
+              << "  -> Routed Interface:    DU (127.0.0.1:50051)\n"
+              << "Commands:\n"
+              << "  target <du|ru>       - Switch active target node\n"
+              << "  ru <command>         - Route command specifically to RU via DU\n"
+              << "  status / start / stop- Send command to active target\n"
+              << "  help                 - Display help menu\n"
+              << "  exit / quit / Ctrl+D - Exit terminal\n"
+              << "============================================================\n\n";
 
     char *line = nullptr;
-    while ((line = readline(p_prompt.c_str())) != nullptr) {
+    while (true) {
+        std::string promptStr = p_prompt.empty() ? (currentTarget + "-Terminal> ") : p_prompt;
+        line = readline(promptStr.c_str());
+        if (!line) {
+            break;
+        }
+
         std::string input = line;
         free(line);
 
@@ -154,12 +185,28 @@ void Terminal::runInteractive(const std::string &p_prompt) {
 
         add_history(input.c_str());
 
-        if (input == "exit" || input == "quit") {
+        if (0 == input.compare("exit") || 0 == input.compare("quit")) {
             std::cout << "Exiting terminal...\n";
             break;
         }
 
-        std::string result = this->sendCommand(input);
+        if (input.rfind("target ", 0) == 0) {
+            std::string newTarget = input.substr(7);
+            size_t tfirst = newTarget.find_first_not_of(" \t");
+            if (tfirst != std::string::npos) {
+                newTarget = newTarget.substr(tfirst);
+            }
+            std::transform(newTarget.begin(), newTarget.end(), newTarget.begin(), ::toupper);
+            if (0 == newTarget.compare("DU") || 0 == newTarget.compare("RU")) {
+                currentTarget = newTarget;
+                std::cout << "Target node switched to: " << currentTarget << "\n";
+            } else {
+                std::cout << "Invalid target: '" << newTarget << "'. Supported: DU, RU.\n";
+            }
+            continue;
+        }
+
+        std::string result = this->sendCommand(input, currentTarget);
         std::cout << result << "\n";
     }
 }

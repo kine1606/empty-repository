@@ -9,6 +9,7 @@ message TerminalRequest {
     string action = 3;
     string parameters = 4;
     int64 timestamp_epoch_ms = 5;
+    string target_node = 6;
 }
 
 // Terminal-specific response definitions

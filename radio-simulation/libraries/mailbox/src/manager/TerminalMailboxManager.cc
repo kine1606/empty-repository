@@ -65,6 +65,28 @@ TerminalMailboxManager::processBusinessLogic(const mailbox::MailboxRequest &p_re
             this->m_outputCallback(duResp.details());
         }
         this->m_cv.notify_all();
+    } else if (p_request.payload().Is<ru::RUResponse>()) {
+        ru::RUResponse ruResp;
+        p_request.payload().UnpackTo(&ruResp);
+
+        INFO("[TerminalMailboxManager] Received RUResponse for RequestId=%1: status=%2",
+             ruResp.request_id(), ruResp.status_code());
+
+        terminal::TerminalResponse termResp;
+        termResp.set_request_id(ruResp.request_id());
+        termResp.set_is_success(ruResp.status_code() == 200);
+        termResp.set_return_code(ruResp.status_code());
+        termResp.set_output_text("[RU via DU] " + ruResp.details());
+
+        {
+            std::lock_guard<std::mutex> lock(this->m_mutex);
+            this->m_receivedExecution = true;
+            this->m_lastTerminalResponse = termResp;
+        }
+        if (this->m_outputCallback) {
+            this->m_outputCallback(termResp.output_text());
+        }
+        this->m_cv.notify_all();
     }
     return std::nullopt;
 }
