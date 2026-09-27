@@ -1,0 +1,218 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+    - name: clang-container
+      image: ubuntu:24.04
+      command:
+        - sleep
+      args:
+        - 99d
+'''
+        }
+    }
+
+    stages {
+        stage('Environment prepare') {
+            steps {
+                container('clang-container') {
+                    sh '''
+                        apt-get update && apt-get install -y --no-install-recommends \
+                            ca-certificates uuid-dev protobuf-compiler protobuf-compiler-grpc libprotobuf-dev libgrpc++-dev git clang-format clang-tidy libgtest-dev
+                    '''
+                }
+            }
+        }
+
+        stage('Environment checks') {
+            parallel {
+                stage('Environment check') {
+                    steps {
+                        container('clang-container') {
+                            sh '''
+                                clang-format --version
+                                clang-tidy --version
+                            '''
+                        }
+                    }
+                }
+
+                stage('Check rebase') {
+                    steps {
+                        withCredentials([string(credentialsId: 'git_event_status_push', variable: 'GITLAB_TOKEN')]) {
+                            container('clang-container') {
+                                sh '''
+                                    set -eu
+
+                                    git config --global --add safe.directory "$(pwd)"
+
+                                    TARGET_BRANCH="main"
+
+                                    echo "Fetching latest ${TARGET_BRANCH}..."
+                                    git \
+                                        -c credential.useHttpPath=true \
+                                        -c 'credential.helper=!f() { printf "username=oauth2\\npassword=%s\\n" "$GITLAB_TOKEN"; }; f' \
+                                        fetch --no-tags origin \
+                                        "+refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"
+
+                                    TARGET_SHA=$(git rev-parse "origin/${TARGET_BRANCH}^{commit}")
+                                    SOURCE_SHA=$(git rev-parse "HEAD^{commit}")
+
+                                    echo "Latest target-branch SHA: ${TARGET_SHA}"
+                                    echo "MR source-branch SHA: ${SOURCE_SHA}"
+
+                                    if git merge-base --is-ancestor "${TARGET_SHA}" "${SOURCE_SHA}"; then
+                                        echo "Latest ${TARGET_BRANCH} commit is included in the MR source branch."
+                                    else
+                                        echo "Latest ${TARGET_BRANCH} commit is not included in the MR source branch."
+                                        echo "Please rebase your branch onto ${TARGET_BRANCH}."
+                                        exit 1
+                                    fi
+                                '''
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Code checker') {
+            parallel {
+                stage('clang checker') {
+                    steps {
+                        container('clang-container') {
+                            sh '''
+                                find . ! -path "./.git/*" ! -path "./Proto/Generated/*" \
+                                    -name "*.h" \
+                                    -print0 | xargs -0 -r clang-format --dry-run --Werror
+
+                                find . ! -path "./.git/*" ! -path "./Proto/Generated/*" \
+                                    -name "*.cc" \
+                                    -print0 | xargs -0 -r clang-format --dry-run --Werror
+
+                                echo "Clang format check done!"
+                            '''
+                        }
+                    }
+                }
+
+                stage('clang-tini checker') {
+                    steps {
+                        container('clang-container') {
+                            sh '''
+                                chmod +x ./generate_proto.sh
+                               ./generate_proto.sh
+                                find . ! -path "./.git/*" ! -path "./Proto/Generated/*" \\( -name "*.cpp" -o -name "*.cc" -o -name "*.h" \\) \
+                                -exec sh -c 'clang-tidy -warnings-as-errors=* -header-filter=.* "$@" -- -I./include -I/usr/include -std=c++17 -x c++' _ {} +
+                            '''
+                        }
+                    }
+                }
+
+            }
+        }
+
+        stage('Build and test checks') {
+            parallel {
+                stage('Project build') {
+                    steps {
+                        container('clang-container') {
+                            sh '''
+                                echo "Build done!"
+                            '''
+                        }
+                    }
+                }
+
+                stage('Project test') {
+                    steps {
+                        container('clang-container') {
+                            sh '''
+                                echo "Test done!"
+                            '''
+                        }
+                    }
+                }
+
+                stage('Coverage') {
+                    steps {
+                        container('clang-container') {
+                            sh '''
+                                echo "Running Coverage for UT..."
+                            '''
+                        }
+                    }
+                }
+
+                stage('Valgrind') {
+                    steps {
+                        container('clang-container') {
+                            sh '''
+                                echo "Running valgrind for UT..."
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+ 
+        stage('Artifact upload') {
+            steps {
+                container('clang-container') {
+                    sh '''
+                        echo "Upload done!"
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                def buildDisplayUrl = env.RUN_DISPLAY_URL ?: "${env.BUILD_URL}console"
+                withCredentials([string(credentialsId: 'git_event_status_push', variable: 'GITLAB_TOKEN')]) {
+                    sh """
+                        git config --global --add safe.directory "*"
+                        COMMIT_SHA=\$(git rev-parse HEAD)
+
+                        echo "--- Sending status [success] to GitLab for commit: \${COMMIT_SHA} ---"
+ 
+                        curl -k --request POST \
+                            --header "PRIVATE-TOKEN: \$GITLAB_TOKEN" \
+                            --data "state=success" \
+                            --data "name=jenkins-ci" \
+                            --data "description=Build finished successfully!" \
+                            --data-urlencode "target_url=${buildDisplayUrl}" \
+                            "https://gitlab.endava.com/api/v4/projects/toan.t.huynh%2Fradio_simulation-08-2026/statuses/\${COMMIT_SHA}"
+                    """
+                }
+            }
+        }
+        failure {
+            script {
+                def buildDisplayUrl = env.RUN_DISPLAY_URL ?: "${env.BUILD_URL}console"
+                withCredentials([string(credentialsId: 'git_event_status_push', variable: 'GITLAB_TOKEN')]) {
+                    sh """
+                        git config --global --add safe.directory "*"
+                        COMMIT_SHA=\$(git rev-parse HEAD)
+
+                        echo "--- Sending status [failed] to GitLab for commit: \${COMMIT_SHA} ---"
+ 
+                        curl -k --request POST \
+                            --header "PRIVATE-TOKEN: \$GITLAB_TOKEN" \
+                            --data "state=failed" \
+                            --data "name=jenkins-ci" \
+                            --data "description=Build failed - See detail in console logs" \
+                            --data-urlencode "target_url=${buildDisplayUrl}" \
+                            "https://gitlab.endava.com/api/v4/projects/toan.t.huynh%2Fradio_simulation-08-2026/statuses/\${COMMIT_SHA}"
+                    """
+                }
+            }
+        }
+    }
+}

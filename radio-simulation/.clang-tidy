@@ -1,0 +1,62 @@
+---
+# Checks: >
+#   -*,
+#   clang-analyzer-*,
+#   bugprone-*,
+#   performance-*,
+#   modernize-make-shared,
+#   modernize-make-unique,
+#   modernize-use-nullptr,
+#   modernize-use-override,
+#   cppcoreguidelines-init-variables,
+#   google-explicit-constructor,
+#   readability-identifier-naming
+
+# WarningsAsErrors: '*'
+# HeaderFilterRegex: '.*'
+# FormatStyle: file
+
+# CheckOptions:
+#   readability-identifier-naming.ClassCase: CamelCase
+#   readability-identifier-naming.StructCase: CamelCase
+#   readability-identifier-naming.FunctionCase: camelBack
+#   readability-identifier-naming.MethodCase: camelBack
+#   readability-identifier-naming.ParameterCase: camelBack
+#   readability-identifier-naming.ParameterPrefix: p_
+#   readability-identifier-naming.MemberCase: camelBack
+#   readability-identifier-naming.MemberPrefix: m_
+#   readability-identifier-naming.LocalVariableCase: camelBack
+#   readability-identifier-naming.ConstantCase: UPPER_CASE
+#   readability-identifier-naming.GlobalVariableCase: UPPER_CASE
+#   readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
+#   readability-identifier-naming.TypeAliasCase: camelBack
+#   readability-identifier-naming.IgnoreMainLikeFunctions: true
+
+ExtraArgs:
+  - '-I./libraries/database/inc'
+  - '-I./libraries/enums'
+  - '-I./libraries/exception/inc'
+  - '-I./libraries/file-manager/inc'
+  - '-I./libraries/logger/inc'
+
+  - '-I./libraries/mailbox/inc'
+  - '-I./libraries/mailbox/inc/manager'
+  - '-I./libraries/mailbox/inc/support'
+  - '-I./libraries/mailbox/inc/validation'
+  - '-I./libraries/mailbox/inc/subscriber'
+  - '-I./libraries/mailbox/inc/error'
+
+  - '-I./libraries/grpc/inc'
+  - '-I./libraries/proto'
+
+  - '-I./libraries/node/inc'
+
+  - '-I./libraries/shared-function/inc'
+
+  - '-I./antenna/inc'
+  - '-I./du/inc'
+  - '-I./ru/inc'
+  - '-I./terminal/inc'
+
+  - '-std=c++20'
+...

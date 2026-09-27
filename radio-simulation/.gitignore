@@ -1,0 +1,96 @@
+# =========================================================================
+# Compiled Binaries & Object Files
+# =========================================================================
+*.o
+*.obj
+*.la
+*.lo
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+
+# =========================================================================
+# Autotools & Makefile Generated Files
+# =========================================================================
+# Ignore the generated Makefile itself, but keep the template Makefile.am/in if needed
+Makefile
+Makefile.in
+
+# Autotools execution logs and caches
+.deps/
+.libs/
+*.log
+*.trs
+*.status
+autom4te.cache/
+aclocal.m4
+compile
+config.guess
+config.h
+config.h.in
+config.log
+config.status
+config.sub
+configure
+depcomp
+install-sh
+missing
+ltmain.sh
+libtool
+stamp-h1
+
+# =========================================================================
+# OS & IDE Generated Files
+# =========================================================================
+# Windows thumbnails and metadata
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# WSL / Linux directory metadata
+.DS_Store
+.directory
+
+# Code editors (VS Code, Cursor, CLion, Visual Studio)
+.vscode/
+.idea/
+*.swp
+*.swo
+*.user
+
+# =========================================================================
+# Autotools Generated Files (Project Specific)
+# =========================================================================
+# Ignore Backup/Temporary files generated during configuration
+*~
+configure~
+
+# Ignore specific Autotools helpers
+ar-lib
+
+# Ignore the generated m4 macro directory
+# (ONLY if it only contains downloaded/generated macros)
+m4/
+test-driver
+.dirstamp
+*_simulation
+/build/
+/build-*/
+/du_node
+/ru_node
+/antenna_node
+/node_client_test
+/libraries/grpc/proto/*.pb.h
+/libraries/grpc/proto/*.pb.cc
+/libraries/grpc/proto/protobuf.stamp
+libraries/file-manager/src/FileManager.cc
+*.lock
+
+# Protocol outputs at the new location (legacy outputs remain ignored above).
+/libraries/proto/*.pb.h
+/libraries/proto/*.pb.cc
+/libraries/proto/protobuf.stamp

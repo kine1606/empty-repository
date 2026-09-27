@@ -1,0 +1,16 @@
+/DU/Id char DU01
+/DU/GrpcAddress char localhost:50051
+/DU/BindAddress char 0.0.0.0:50051
+
+/RU/Id char RU01
+/RU/GrpcAddress char localhost:50052
+/RU/BindAddress char 0.0.0.0:50052
+
+/Antenna/Id char ANTENNA01
+/Antenna/GrpcAddress char localhost:50053
+/Antenna/BindAddress char 0.0.0.0:50053
+
+/Grpc/Retry/MaxAttempts s32 3
+/Grpc/Retry/TimeoutMs s32 2000
+/Grpc/Retry/InitialBackoffMs s32 100
+/Grpc/Retry/MaxBackoffMs s32 2000
