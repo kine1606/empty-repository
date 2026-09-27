@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package mailbox;
+
 import "google/protobuf/any.proto";
 import "google/protobuf/empty.proto";
 
@@ -12,42 +13,35 @@ enum ErrorCode {
     INTERNAL_ERROR = 4;
 }
 
-//enum ResponseType
-//{
-//}
-
-
-// message MailboxRequest {
- //   string request_id = 1;
- //   string source     = 2;
- //   MessageType = 3; 
- //   bool success = 4;//optional
- //   string destination = 3;//option
- //   // this will creata an interface for other later modules to define its own request and response type
-  //  google.protobuf.Any payload = 4;
-//}
-//enum MessageType {
-  //  VALIDATE = 0;
-  //  REQUEST = 1;
-  //  RESPONSE = 2;
-//}
-
 message MailboxRequest {
     string request_id = 1;
-    string source     = 2;
-    string destination = 3;//option
-    // this will creata an interface for other later modules to define its own request and response type
+    string source = 2;
+    string destination = 3;
     google.protobuf.Any payload = 4;
- //   MessageType message_type = 5;
 }
 
-//message MailboxResponse {
-   
- //   MailboxRequest request = 1
- //   bool success = 2
- //   ResponseType type = 3
+// Request payload sent from Node A to Node B
+message NodeBRequest {
+    string command = 1;
+    int32 transaction_id = 2;
+    string data = 3;
+}
 
-//}
+// Distinct response 1: Validation response sent from Node B back to Node A
+message ValidationResponse {
+    string request_id = 1;
+    bool is_valid = 2;
+    ErrorCode error_code = 3;
+    string message = 4;
+}
+
+// Distinct response 2: Business logic response sent from Node B back to Node A
+message NodeAResponse {
+    string request_id = 1;
+    string status = 2;
+    int32 result_code = 3;
+    string result_details = 4;
+}
 
 // return empty here because gRPC force to return something when sending.
 // so the Response instead of directly sent back, I will send an Empty message
@@ -55,56 +49,3 @@ message MailboxRequest {
 service MailboxService {
     rpc SendMessage(MailboxRequest) returns (google.protobuf.Empty);
 }
-
-// enum NodeType {
-//     NODE_UNKNOWN = 0;
-//     DU           = 1;
-//     RU           = 2;
-//     ANTENNA      = 3;
-// }
-
-// message NodeInfo {
-//     string   node_id   = 1;
-//     NodeType node_type = 2;
-// }
-
-// message Metadata {
-//     string timestamp      = 1;
-//     string correlation_id = 2;
-//     string version        = 3;
-// }
-
-// enum MessageType {
-//     MSG_UNKNOWN = 0;
-//     CONFIG      = 1;
-//     START       = 2;
-//     STOP        = 3;
-//     STATUS      = 4;
-//     HELLO       = 5;
-// }
-
-// enum ErrorCode {
-//     OK                     = 0;
-//     INVALID_FORMAT         = 1;
-//     MISSING_REQUIRED_FIELD = 2;
-//     INVALID_METADATA       = 3;
-//     INVALID_MESSAGE_TYPE   = 4;
-//     UNSUPPORTED_MESSAGE    = 5;
-//     HANDLER_NOT_FOUND      = 6;
-//     INTERNAL_ERROR         = 7;
-// }
-
-// // message RURequest {
-// }
-// //     // RU-specific fields
-// // }
-
-// // message DURequest {
-// //     // DU-specific fields
-// // }
-// message MailboxResponse {
-//     bool      success    = 1;
-//     ErrorCode error_code = 2;
-//     string    message    = 3;
-//     string    request_id = 4;
-// }

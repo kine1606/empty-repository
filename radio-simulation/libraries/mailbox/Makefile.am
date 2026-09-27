@@ -6,6 +6,8 @@ libmailbox_la_SOURCES = \
     src/Mailbox.cc \
     src/MailboxWorker.cc \
     src/manager/BaseMailboxManager.cc \
+    src/manager/NodeAManager.cc \
+    src/manager/NodeBManager.cc \
     src/validation/BaseValidator.cc \
     src/validation/ValidationResult.cc
 
@@ -21,8 +23,8 @@ libmailbox_la_CPPFLAGS = \
     -I$(top_srcdir)/libraries/proto
 
 libmailbox_la_LIBADD = \
-    $(top_builddir)/libraries/logger/liblogger.la
-
+    $(top_builddir)/libraries/logger/liblogger.la \
+    $(top_builddir)/libraries/proto/libmailbox_proto.la
 
 SUBDIRS = \
     . \

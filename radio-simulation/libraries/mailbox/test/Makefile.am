@@ -10,6 +10,8 @@ test_mailbox_CPPFLAGS = \
     $(AM_CPPFLAGS) \
     -I$(srcdir)/../inc \
     -I$(srcdir)/../inc/error \
+    -I$(srcdir)/../inc/manager \
+    -I$(srcdir)/../inc/support \
     -I$(srcdir)/../inc/validation \
     -I$(top_srcdir)/libraries/logger/inc \
     -I$(top_srcdir)/libraries/file-manager/inc \
@@ -18,7 +20,8 @@ test_mailbox_CPPFLAGS = \
 
 test_mailbox_SOURCES = \
     MailboxTest.cc \
-    ValidatorTest.cc
+    ValidatorTest.cc \
+    MailboxDemoTest.cc
 
 test_mailbox_CXXFLAGS = -std=c++20
 

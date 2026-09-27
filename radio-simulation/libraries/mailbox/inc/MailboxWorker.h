@@ -78,4 +78,4 @@ private:
   std::atomic<bool> m_running{false};
 };
 
-#endif // MAILBOX_WORKER_H
+#endif
